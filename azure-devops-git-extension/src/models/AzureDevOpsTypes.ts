@@ -36,6 +36,13 @@ export interface Repository {
 /**
  * Response structure from repositories API
  */
+export class ProjectsResponse {
+  value!: Project[];
+  count!: number;
+}
+/**
+ * Response structure from repositories API
+ */
 export interface RepositoriesResponse {
   value: Repository[];
   count: number;

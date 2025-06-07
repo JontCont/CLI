@@ -137,7 +137,6 @@ function Repos() {
       } else {
         // Handle if the response is a Promise
         console.warn('[Repos] API returned Promise instead of Observable, using sample data');
-        provideSampleRepositories(selectedProject);
         setLoading(false);
       }
     } catch (error) {

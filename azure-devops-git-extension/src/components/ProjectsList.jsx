@@ -42,16 +42,24 @@ function ProjectsList({ projects, loading, error, onSelectProject }) {
         </Typography>
       </Box>
     );
-  }
-
-  return (
+  }  return (
     <>
       <Typography variant="h4" gutterBottom component="h1">
         Your Projects
       </Typography>
       
       <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-        {projects.map((project) => (
+        {projects
+          .filter(project => {
+            // 排除 Promise 物件和空值
+            if (!project) return false;
+            if (project instanceof Promise) return false;
+            if (typeof project === 'object' && typeof project.then === 'function') return false;
+            
+            // 確保有 ID
+            return !!project.id;
+          })
+          .map((project) => (
           <ListItem 
             key={project.id} 
             divider
@@ -68,8 +76,10 @@ function ProjectsList({ projects, loading, error, onSelectProject }) {
               }}
             >
               <ListItemText 
-                primary={project.name} 
-                secondary={`Last updated: ${new Date(project.lastUpdateTime).toLocaleDateString()}`}
+                primary={project.name || 'Unnamed Project'} 
+                secondary={project.lastUpdateTime ? 
+                  `Last updated: ${new Date(project.lastUpdateTime).toLocaleDateString()}` : 
+                  'No update information available'}
                 primaryTypographyProps={{ fontWeight: 'bold' }}
               />
             </ListItemButton>

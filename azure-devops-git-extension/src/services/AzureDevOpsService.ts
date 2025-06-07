@@ -2,19 +2,21 @@
  * Azure DevOps API Service
  * Handles all requests to the Azure DevOps API
  */
-import { from, Observable } from 'rxjs';
-import { mergeMap, catchError } from 'rxjs/operators';
+import { from, Observable } from "rxjs";
+import { fromFetch } from "rxjs/fetch";
+import { mergeMap, catchError } from "rxjs/operators";
 import {
   Project,
+  ProjectsResponse,
   Repository,
   RepositoriesResponse,
   Branch,
   BranchesResponse,
   Commit,
-  CommitsResponse
-} from '../models/AzureDevOpsTypes';
+  CommitsResponse,
+} from "../models/AzureDevOpsTypes";
 
-const API_VERSION = 'api-version=7.0';
+const API_VERSION = "api-version=7.0";
 
 /**
  * Azure DevOps API Service class
@@ -35,7 +37,7 @@ class AzureDevOpsService {
     this.token = token;
     this.headers = {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
   }
 
@@ -43,9 +45,9 @@ class AzureDevOpsService {
    * Get list of projects
    * @returns Observable of projects response
    */
-  getProjects(): Observable<{ count: number, value: Project[] }> {
+  getProjects(): Observable<ProjectsResponse> {
     const url = `${this.baseUrl}/_apis/projects?${API_VERSION}`;
-    return this._makeApiCall<{ count: number, value: Project[] }>(url);
+    return this._makeApiCall<ProjectsResponse>(url);
   }
 
   /**
@@ -83,8 +85,11 @@ class AzureDevOpsService {
    * @param projectId - The project ID (optional)
    * @returns Observable of repository
    */
-  getRepository(repositoryId: string, projectId?: string): Observable<Repository> {
-    const projectSegment = projectId ? `${projectId}/` : '';
+  getRepository(
+    repositoryId: string,
+    projectId?: string
+  ): Observable<Repository> {
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}?${API_VERSION}`;
     return this._makeApiCall<Repository>(url);
   }
@@ -95,8 +100,11 @@ class AzureDevOpsService {
    * @param projectId - The project ID (optional)
    * @returns Observable of branches response
    */
-  getBranches(repositoryId: string, projectId?: string): Observable<BranchesResponse> {
-    const projectSegment = projectId ? `${projectId}/` : '';
+  getBranches(
+    repositoryId: string,
+    projectId?: string
+  ): Observable<BranchesResponse> {
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
     return this._makeApiCall<BranchesResponse>(url);
   }
@@ -107,8 +115,11 @@ class AzureDevOpsService {
    * @param projectId - The project ID (optional)
    * @returns Observable of commits response
    */
-  getCommits(repositoryId: string, projectId?: string): Observable<CommitsResponse> {
-    const projectSegment = projectId ? `${projectId}/` : '';
+  getCommits(
+    repositoryId: string,
+    projectId?: string
+  ): Observable<CommitsResponse> {
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/commits?${API_VERSION}`;
     return this._makeApiCall<CommitsResponse>(url);
   }
@@ -120,29 +131,33 @@ class AzureDevOpsService {
    * @param projectId - The project ID (optional)
    * @returns Observable of the API response
    */
-  deleteBranch(repositoryId: string, branchName: string, projectId?: string): Observable<any> {
-    const projectSegment = projectId ? `${projectId}/` : '';
+  deleteBranch(
+    repositoryId: string,
+    branchName: string,
+    projectId?: string
+  ): Observable<any> {
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
-    
+
     // Ensure the branch name includes the refs/heads/ prefix
-    const formattedBranchName = branchName.startsWith('refs/') 
-      ? branchName 
+    const formattedBranchName = branchName.startsWith("refs/")
+      ? branchName
       : `refs/heads/${branchName}`;
-    
+
     // API expects an array of objects with the name of refs to delete
     const payload = [
       {
         name: formattedBranchName,
         oldObjectId: "0000000000000000000000000000000000000000",
-        newObjectId: "0000000000000000000000000000000000000000"
-      }
+        newObjectId: "0000000000000000000000000000000000000000",
+      },
     ];
-    
+
     const options: RequestInit = {
-      method: 'POST',
-      body: JSON.stringify(payload)
+      method: "POST",
+      body: JSON.stringify(payload),
     };
-    
+
     return this._makeApiCall<any>(url, options);
   }
 
@@ -152,28 +167,41 @@ class AzureDevOpsService {
    * @param url - The URL to call
    * @param options - The fetch options
    * @returns Observable of the API response
-   */  private _makeApiCall<T>(url: string, options: RequestInit = {}): Observable<T> {
+   */
+  private _makeApiCall<T>(
+    url: string,
+    options: RequestInit = {}
+  ): Observable<T> {
     const fetchOptions: RequestInit = {
-      method: 'GET',
+      method: "GET",
       headers: this.headers,
-      ...options
+      ...options,
     };
 
     console.log(`[API] Making API call to: ${url}`);
+    fetch(url, fetchOptions).then((response) => {
+      console.debug(`[API] response: ${response}`);
+    }); // Use fromFetch for better observable integration
+    // Note: fromFetch does not support the 'headers' property inside fetchOptions if it's a plain object, so ensure it's a Headers instance if needed.
 
-    return from(fetch(url, fetchOptions)).pipe(
-      mergeMap(response => {
+    // Ensure headers are a Headers instance for fromFetch compatibility
+    const headers = new Headers(this.headers);
+
+    return fromFetch(url, { ...fetchOptions, headers }).pipe(
+      mergeMap((response) => {
+        console.debug(`[API] Response received from: ${url}`);
         console.log(`[API] Response status: ${response.status}`);
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         return response.json() as Promise<T>;
-      }),      mergeMap(data => {
+      }),
+      mergeMap((data) => {
         console.log(`[API] Received data:`, data);
         return from(Promise.resolve(data));
       }),
-      catchError(error => {
-        console.error('[API] API call failed:', error);
+      catchError((error) => {
+        console.error("[API] API call failed:", error);
         throw error;
       })
     );
