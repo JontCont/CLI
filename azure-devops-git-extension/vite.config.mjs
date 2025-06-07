@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import replace from '@rollup/plugin-replace';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import replace from "@rollup/plugin-replace";
+import { nxViteTsPaths } from "@nx/vite/plugins/nx-tsconfig-paths.plugin";
 
 // Match CRA's environment variables.
 // TODO: Replace these with VITE_ prefixed environment variables, and using import.meta.env.VITE_* instead of process.env.REACT_APP_*.
@@ -16,7 +16,15 @@ const craEnvVars = Object.keys(process.env)
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
-    outDir: './dist/azure-devops-git-extension'
+    outDir: "dist",
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    }
   },
   server: {
     port: 3000,
@@ -24,8 +32,8 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: 'src/setupTests.js',
+    environment: "jsdom",
+    setupFiles: "src/setupTests.js",
     css: true,
   },
   plugins: [
