@@ -382,8 +382,21 @@ function Repos() {
       return;
     }
 
+    console.log(
+      "[Repos] handleDeleteSelectedBranches called with selected branches:",
+      selectedBranches
+    );
+
     const arr = selectedBranches.map((name) => {
       const branch = branches.find((b) => b.name === name);
+      if (!branch) {
+        console.warn("[Repos] Branch not found for deletion:", name);
+        return null; // Skip if branch not found
+      }
+      if (!branch.objectId) {
+        console.warn("[Repos] Branch objectId is missing:", name);
+        return null; // Skip if objectId is missing
+      }
       return {
         name,
         oldObjectId: branch.objectId,
