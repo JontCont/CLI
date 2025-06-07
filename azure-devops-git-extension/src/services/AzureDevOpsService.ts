@@ -114,6 +114,39 @@ class AzureDevOpsService {
   }
 
   /**
+   * Delete a branch in a repository
+   * @param repositoryId - The repository ID
+   * @param branchName - The branch name (must include refs/heads/ prefix)
+   * @param projectId - The project ID (optional)
+   * @returns Observable of the API response
+   */
+  deleteBranch(repositoryId: string, branchName: string, projectId?: string): Observable<any> {
+    const projectSegment = projectId ? `${projectId}/` : '';
+    const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
+    
+    // Ensure the branch name includes the refs/heads/ prefix
+    const formattedBranchName = branchName.startsWith('refs/') 
+      ? branchName 
+      : `refs/heads/${branchName}`;
+    
+    // API expects an array of objects with the name of refs to delete
+    const payload = [
+      {
+        name: formattedBranchName,
+        oldObjectId: "0000000000000000000000000000000000000000",
+        newObjectId: "0000000000000000000000000000000000000000"
+      }
+    ];
+    
+    const options: RequestInit = {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    };
+    
+    return this._makeApiCall<any>(url, options);
+  }
+
+  /**
    * Helper method to make API calls and handle errors
    * @private
    * @param url - The URL to call
