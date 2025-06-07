@@ -222,53 +222,88 @@ function Repos() {
     setView("repositories");
   };
 
-  // Delete branch
+  // 刪除 branch
   const handleDeleteBranch = async (branch) => {
-    console.log('[Repos] handleDeleteBranch called', branch);
-    const repo = selectedRepository || JSON.parse(sessionStorage.getItem('selectedRepository'));
-    const proj = selectedProject || JSON.parse(sessionStorage.getItem('selectedProject'));
+    const apiService = ApiManager.getCurrentService();
+    const repo =
+      selectedRepository ||
+      JSON.parse(sessionStorage.getItem("selectedRepository"));
+    const proj =
+      selectedProject || JSON.parse(sessionStorage.getItem("selectedProject"));
     if (!repo || !proj) {
-      console.error('[Repos] Repository or project not selected', { repo, proj });
-      return Promise.reject(new Error('Repository or project not selected'));
+      console.error("[Repos] Repository or project not selected", {
+        repo,
+        proj,
+      });
+      return Promise.reject(new Error("Repository or project not selected"));
+    }
+    if (!apiService || typeof apiService.deleteBranch !== "function") {
+      setError("API service not initialized or deleteBranch not available");
+      return Promise.reject(
+        new Error("API service not initialized or deleteBranch not available")
+      );
     }
     setLoading(true);
-    setLoadingMessage('Deleting branch...');
-    const apiService = ApiManager.getCurrentService();
+    setLoadingMessage("Deleting branch...");
     return new Promise((resolve, reject) => {
       try {
-        apiService.deleteBranch(repo.id, branch.name, proj.id, branch.objectId).subscribe({
-          next: (response) => {
-            console.log('[Repos] deleteBranch API success', response);
-            // Reload branches to reflect changes
-            apiService.getBranches(repo.id, proj.id).subscribe({
-              next: (data) => {
-                if (data && data.value) {
-                  const branchRefs = data.value.filter(ref => ref.name.startsWith('refs/heads/'));
-                  setBranches(branchRefs);
-                } else {
-                  setBranches([]);
-                }
-                setLoading(false);
-                showNotification(`Branch ${branch.name.replace('refs/heads/', '')} deleted successfully`, 'success');
-                resolve();
-              },
-              error: (error) => {
-                setError('Failed to refresh branches list');
-                setLoading(false);
-                reject(error);
-              }
-            });
-          },
-          error: (error) => {
-            console.error('[Repos] deleteBranch API error', error);
-            setError('Failed to delete branch: ' + (error.message || 'Unknown error'));
-            setLoading(false);
-            reject(error);
-          }
-        });
+        apiService
+          .deleteBranch(repo.id, branch.name, proj.id, branch.objectId)
+          .subscribe({
+            next: (response) => {
+              console.log("[Repos] deleteBranch API success", response);
+              // Reload branches to reflect changes
+              apiService.getBranches(repo.id, proj.id).subscribe({
+                next: (data) => {
+                  if (data && data.value) {
+                    loadBranches(repo.id, proj.id);
+
+                    // 自動回到上一頁（如果本頁已無分支且不是第1頁）
+                    setTimeout(() => {
+                      const filteredCount = getFilteredBranchesCount();
+                      const maxPage = Math.max(
+                        1,
+                        Math.ceil(filteredCount / BRANCHES_PER_PAGE)
+                      );
+                      if (branchPage > maxPage) {
+                        setBranchPage(maxPage);
+                      }
+                    }, 0);
+                  } else {
+                    setBranches([]);
+                    setBranchPage(1);
+                  }
+                  setLoading(false);
+                  showNotification(
+                    `Branch ${branch.name.replace(
+                      "refs/heads/",
+                      ""
+                    )} deleted successfully`,
+                    "success"
+                  );
+                  resolve();
+                },
+                error: (error) => {
+                  setError("Failed to refresh branches list");
+                  setLoading(false);
+                  reject(error);
+                },
+              });
+            },
+            error: (error) => {
+              console.error("[Repos] deleteBranch API error", error);
+              setError(
+                "Failed to delete branch: " + (error.message || "Unknown error")
+              );
+              setLoading(false);
+              reject(error);
+            },
+          });
       } catch (err) {
-        console.error('[Repos] deleteBranch exception', err);
-        setError('Failed to delete branch: ' + (err.message || 'Unknown error'));
+        console.error("[Repos] deleteBranch exception", err);
+        setError(
+          "Failed to delete branch: " + (err.message || "Unknown error")
+        );
         setLoading(false);
         reject(err);
       }
@@ -282,16 +317,21 @@ function Repos() {
   const BRANCHES_PER_PAGE = 50;
 
   // 分頁與搜尋後的 branches
-  const getPagedFilteredBranches = () => {
+  const getFilteredBranches = () => {
     let filtered = branches;
     if (branchSearch) {
       filtered = filtered.filter((b) =>
         b.name.toLowerCase().includes(branchSearch.toLowerCase())
       );
     }
+    return filtered;
+  };
+  const getPagedFilteredBranches = () => {
+    const filtered = getFilteredBranches();
     const start = (branchPage - 1) * BRANCHES_PER_PAGE;
     return filtered.slice(start, start + BRANCHES_PER_PAGE);
   };
+  const getFilteredBranchesCount = () => getFilteredBranches().length;
 
   // 勾選/取消勾選分支
   const handleToggleBranch = (branchName) => {
@@ -311,29 +351,72 @@ function Repos() {
     setSelectedBranches(
       allSelected
         ? selectedBranches.filter((name) => !pageBranches.includes(name))
-        : [...selectedBranches, ...pageBranches.filter((name) => !selectedBranches.includes(name))]
+        : [
+            ...selectedBranches,
+            ...pageBranches.filter((name) => !selectedBranches.includes(name)),
+          ]
     );
   };
 
   // 批次刪除勾選分支
   const handleDeleteSelectedBranches = async () => {
-    const repo = selectedRepository || JSON.parse(sessionStorage.getItem('selectedRepository'));
-    const proj = selectedProject || JSON.parse(sessionStorage.getItem('selectedProject'));
-    if (!repo || !proj) return;
-    setLoading(true);
-    setLoadingMessage('Deleting selected branches...');
-    try {
-      for (const branchName of selectedBranches) {
-        await handleDeleteBranch({ name: branchName });
-      }
-      setSelectedBranches([]);
-      loadBranches(repo.id, proj.id);
-      showNotification('Selected branches deleted successfully', 'success');
-    } catch (err) {
-      setError('Failed to delete selected branches');
-    } finally {
-      setLoading(false);
+    const repo =
+      selectedRepository ||
+      JSON.parse(sessionStorage.getItem("selectedRepository"));
+
+    const proj =
+      selectedProject || JSON.parse(sessionStorage.getItem("selectedProject"));
+
+    if (!repo || !proj) {
+      console.error("[Repos] Repository or project not selected", {
+        repo,
+        proj,
+      });
+      setError("Repository or project not selected");
+      return;
     }
+
+    // 取得 checked branches
+    if (selectedBranches.length === 0) {
+      showNotification("No branches selected for deletion", "warning");
+      return;
+    }
+
+    const arr = selectedBranches.map((name) => {
+      const branch = branches.find((b) => b.name === name);
+      return {
+        name,
+        oldObjectId: branch.objectId,
+        newObjectId: "0000000000000000000000000000000000000000",
+      };
+    });
+
+    console.log("[Repos] handleDeleteSelectedBranches array called", arr);
+
+    const apiService = ApiManager.getCurrentService();
+    if (!apiService || typeof apiService.batchDeleteBranch !== "function") {
+      setError("API service not initialized or batchDeleteBranch not available");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage("Deleting selected branches...");
+    apiService
+      .batchDeleteBranch(repo.id, arr, proj.id)
+      .subscribe({
+        next: () => {
+          loadBranches(repo.id, proj.id);
+          setLoading(false);
+          showNotification("Selected branches deleted successfully", "success");
+        },
+        error: (error) => {
+          setLoading(false);
+          setError(
+            "Failed to delete selected branches: " +
+              (error.message || "Unknown error")
+          );
+        },
+      });
   };
 
   // 分頁切換
@@ -388,9 +471,7 @@ function Repos() {
             onBranchSearchChange={handleBranchSearchChange}
             branchPage={branchPage}
             onBranchPageChange={handleBranchPageChange}
-            totalBranches={branches.filter((b) =>
-              b.name.toLowerCase().includes(branchSearch.toLowerCase())
-            ).length}
+            totalBranches={getFilteredBranchesCount()}
             branchesPerPage={BRANCHES_PER_PAGE}
             selectedBranches={selectedBranches}
             onToggleBranch={handleToggleBranch}

@@ -185,7 +185,7 @@ class AzureDevOpsService {
    * @param {string} projectId - The project ID
    * @returns {Observable} An observable of the API response
    */
-  deleteBranch(repositoryId, branchName, projectId, objectId) {
+  batchDeleteBranch(repositoryId, branchName, projectId, objectId) {
     console.log(
       `[AzureDevOpsService] Deleting branch ${branchName} in repository ${repositoryId} for project ${projectId}`
     );
@@ -202,6 +202,46 @@ class AzureDevOpsService {
           newObjectId: "0000000000000000000000000000000000000000",
         },
       ]),
+    }).pipe(
+      map((response) => {
+        if (!response.ok) {
+          console.error(
+            `[AzureDevOpsService] HTTP error! Status: ${response.status}`
+          );
+          throw new Error(
+            `HTTP error! Status: ${response.status}, URL: ${url}`
+          );
+        }
+        return response.json();
+      }),
+      catchError((error) => {
+        console.error(
+          `[AzureDevOpsService] API call failed for ${url}:`,
+          error
+        );
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Delete a branch in a repository (Azure DevOps 正確寫法)
+   * @param {string} repositoryId - The repository ID
+   * @param {string} branchName - The full ref name (e.g. refs/heads/feature/xxx)
+   * @param {string} projectId - The project ID
+   * @returns {Observable} An observable of the API response
+   */
+  batchDeleteBranch(repositoryId, branches, projectId) {
+    console.log(
+      `[AzureDevOpsService] Deleting branches in repository ${repositoryId} for project ${projectId}`
+    );
+    const projectSegment = projectId ? `${projectId}/` : "";
+    const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
+
+    return fromFetch(url, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(branches),
     }).pipe(
       map((response) => {
         if (!response.ok) {

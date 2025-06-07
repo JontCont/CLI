@@ -4,7 +4,7 @@
  */
 import { from, Observable } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
-import { mergeMap, catchError } from "rxjs/operators";
+import { mergeMap, catchError, map } from "rxjs/operators";
 import {
   Project,
   ProjectsResponse,
@@ -161,6 +161,51 @@ class AzureDevOpsService {
 
     return this._makeApiCall<any>(url, options);
   }
+
+    /**
+     * Delete one or more branches in a repository (batch operation)
+     * @param repositoryId - The repository ID
+     * @param branches - Array of branch objects to delete (each with name, oldObjectId, newObjectId)
+     * @param projectId - The project ID (optional)
+     * @returns Observable of the API response
+     */
+    batchDeleteBranch(
+      repositoryId: string,
+      branches: { name: string; oldObjectId: string; newObjectId: string }[],
+      projectId?: string
+    ): Observable<any> {
+      console.log(
+        `[AzureDevOpsService] Deleting branches in repository ${repositoryId} for project ${projectId ?? "(none)"}`
+      );
+      const projectSegment = projectId ? `${projectId}/` : "";
+      const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
+
+      return fromFetch(url, {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(branches),
+      }).pipe(
+        map((response: Response) => {
+          if (!response.ok) {
+            console.error(
+              `[AzureDevOpsService] HTTP error! Status: ${response.status}`
+            );
+            throw new Error(
+              `HTTP error! Status: ${response.status}, URL: ${url}`
+            );
+          }
+          return response.json();
+        }),
+        catchError((error) => {
+          console.error(
+            `[AzureDevOpsService] API call failed for ${url}:`,
+            error
+          );
+          throw error;
+        })
+      );
+    }
+
 
   /**
    * Helper method to make API calls and handle errors

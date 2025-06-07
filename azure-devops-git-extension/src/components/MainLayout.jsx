@@ -61,14 +61,6 @@ function MainLayout({ children }) {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => handleNavigation('/repos')}>
-            <ListItemIcon>
-              <SourceIcon />
-            </ListItemIcon>
-            <ListItemText primary="Git Repositories" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
           <ListItemButton onClick={() => handleNavigation('/dashboard')}>
             <ListItemIcon>
               <DashboardIcon />
