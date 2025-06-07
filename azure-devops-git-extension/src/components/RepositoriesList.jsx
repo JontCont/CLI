@@ -60,11 +60,11 @@ function RepositoriesList({
         >
           Projects
         </Link>
-        <Typography color="text.primary">{selectedProject.name}</Typography>
+        <Typography color="text.primary">{selectedProject?.name}</Typography>
       </Breadcrumbs>
 
       <Typography variant="h4" gutterBottom component="h1">
-        Repositories in {selectedProject.name}
+        Repositories in {selectedProject?.name}
       </Typography>
       
       {repositories.length === 0 ? (
@@ -91,7 +91,7 @@ function RepositoriesList({
               >
                 <FolderIcon color="primary" sx={{ mr: 2 }} />
                 <ListItemText 
-                  primary={repo.name} 
+                  primary={repo?.name} 
                   secondary={`Last updated: ${repo.project ? new Date(repo.project.lastUpdateTime).toLocaleDateString() : 'Unknown'}`}
                   primaryTypographyProps={{ fontWeight: 'bold' }}
                 />

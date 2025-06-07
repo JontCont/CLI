@@ -149,14 +149,14 @@ function Repos() {
     // Store selected repository in session storage
     sessionStorage.setItem("selectedRepository", JSON.stringify(repository));
 
-    if (!selectedProject) {
+    if (!repository) {
       console.error("[Repos] No project selected for repository:", repository);
       setError("No project selected for this repository.");
       return;
     }
 
     // Load branches for selected repository
-    loadBranches(repository.id, selectedProject.id);
+    loadBranches(repository.id, repository.project.id);
   };
 
   // Function to load branches for a repository

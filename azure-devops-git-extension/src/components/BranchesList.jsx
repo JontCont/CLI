@@ -124,13 +124,13 @@ function BranchesList({
           }}
           sx={{ display: 'flex', alignItems: 'center' }}
         >
-          {selectedProject.name}
+          {selectedProject?.name}
         </Link>
-        <Typography color="text.primary">{selectedRepository.name}</Typography>
+        <Typography color="text.primary">{selectedRepository?.name}</Typography>
       </Breadcrumbs>
 
       <Typography variant="h4" gutterBottom component="h1">
-        Branches in {selectedRepository.name}
+        Branches in {selectedRepository?.name}
       </Typography>
       
       {deleteError && (
