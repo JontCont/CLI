@@ -1,6 +1,26 @@
 import React, { useState } from 'react';
-import logo from './logo.svg';
 import './App.css';
+import { 
+  TextField, 
+  Button, 
+  Container, 
+  Box, 
+  Typography, 
+  Paper, 
+  ThemeProvider, 
+  createTheme
+} from '@mui/material';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
 
 function App() {
   const [url, setUrl] = useState('');
@@ -12,7 +32,7 @@ function App() {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -24,33 +44,79 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <h1>Welcome to the Homepage</h1>
-        {!user ? (
-          <div>
-            <input
-              type="text"
-              placeholder="Enter URL"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Enter Token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-            <button onClick={handleSubmit}>Submit</button>
-          </div>
-        ) : (
-          <div>
-            <h2>Welcome, {user.name}</h2>
-          </div>
-        )}
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <Container maxWidth="md" className="App">
+        <Box sx={{ 
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          py: 4
+        }}>
+          <Paper elevation={3} sx={{
+            padding: 4,
+            borderRadius: 2,
+            width: '100%',
+            maxWidth: 600,
+            background: 'rgba(255, 255, 255, 0.9)',
+          }}>
+            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+              Azure DevOps Git Extension
+            </Typography>
+            <Typography variant="subtitle1" gutterBottom align="center" sx={{ mb: 3, color: '#555' }}>
+              Please enter the URL and Token to proceed
+            </Typography>
+            
+            <Box sx={{ mb: 3 }}>
+              <TextField
+                fullWidth
+                label="API URL"
+                variant="outlined"
+                margin="normal"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://dev.azure.com/{organization}"
+              />
+              <TextField
+                fullWidth
+                label="Access Token"
+                variant="outlined"
+                margin="normal"
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Enter your personal access token"
+              />
+            </Box>
+            
+            <Button 
+              variant="contained" 
+              color="primary" 
+              fullWidth 
+              size="large"
+              onClick={handleSubmit}
+              sx={{ 
+                py: 1.5,
+                mt: 2,
+                fontWeight: 'bold',
+                fontSize: '1rem'
+              }}
+            >
+              Authenticate
+            </Button>
+            
+            {user && (
+              <Box sx={{ mt: 4, textAlign: 'center' }}>
+                <Typography variant="h5" component="h2" sx={{ color: 'green' }}>
+                  Welcome, {user.name}
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Box>
+      </Container>
+    </ThemeProvider>
   );
 }
 
