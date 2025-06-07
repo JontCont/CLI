@@ -66,9 +66,33 @@ function ProtectedRoute({ children }) {
 // Wrapper for Repos component to pass token from session
 function ReposWrapper() {
   const authData = sessionStorage.getItem("authData");
-  const { token, url } = JSON.parse(authData);
-
-  return <Repos token={token} apiUrl={url} />;
+  
+  if (!authData) {
+    console.error('[App] No auth data found in session');
+    return <Navigate to="/" />;
+  }
+    try {
+    const parsed = JSON.parse(authData);
+    console.log('[App] ReposWrapper auth data:', { 
+      tokenExists: !!parsed.token, 
+      urlExists: !!parsed.url,
+      expiration: new Date(parsed.expiresAt).toLocaleString(),
+      isExpired: parsed.expiresAt < Date.now()
+    });
+    
+    if (parsed.expiresAt < Date.now()) {
+      console.log('[App] Token expired, redirecting to login');
+      sessionStorage.removeItem("authData");
+      return <Navigate to="/" />;
+    }
+    
+    // We don't actually need to pass these props as Repos uses ApiManager
+    return <Repos />;
+  } catch (error) {
+    console.error('[App] Error parsing auth data:', error);
+    sessionStorage.removeItem("authData");
+    return <Navigate to="/" />;
+  }
 }
 
 export default App;

@@ -55,23 +55,43 @@ class ApiManager {
   getCurrentService(): AzureDevOpsService | null {
     return this.currentService;
   }
-
   /**
    * Create a service from session storage
    * @returns The service or null if not found in session
    */
   loadFromSession(): AzureDevOpsService | null {
+    console.log('[ApiManager] Loading service from session');
     const authDataString = sessionStorage.getItem('authData');
     if (!authDataString) {
+      console.log('[ApiManager] No auth data found in session');
       return null;
     }
 
-    const authData = JSON.parse(authDataString) as AuthData;
-    if (!authData.token || !authData.url) {
+    try {
+      const authData = JSON.parse(authDataString) as AuthData;
+      console.log('[ApiManager] Auth data found:', { 
+        urlPresent: !!authData.url, 
+        tokenPresent: !!authData.token,
+        expiresAt: authData.expiresAt,
+        isExpired: authData.expiresAt < Date.now()
+      });
+      
+      if (!authData.token || !authData.url) {
+        console.log('[ApiManager] Missing token or URL in auth data');
+        return null;
+      }
+      
+      if (authData.expiresAt < Date.now()) {
+        console.log('[ApiManager] Token has expired');
+        return null;
+      }
+
+      console.log('[ApiManager] Initializing service with URL:', authData.url);
+      return this.initService(authData.url, authData.token);
+    } catch (error) {
+      console.error('[ApiManager] Error loading from session:', error);
       return null;
     }
-
-    return this.initService(authData.url, authData.token);
   }
 
   /**

@@ -119,37 +119,29 @@ class AzureDevOpsService {
    * @param url - The URL to call
    * @param options - The fetch options
    * @returns Observable of the API response
-   */
-  private _makeApiCall<T>(url: string, options: RequestInit = {}): Observable<T> {
+   */  private _makeApiCall<T>(url: string, options: RequestInit = {}): Observable<T> {
     const fetchOptions: RequestInit = {
       method: 'GET',
       headers: this.headers,
       ...options
     };
 
+    console.log(`[API] Making API call to: ${url}`);
+
     return from(fetch(url, fetchOptions)).pipe(
-      // Flatten the Promise<T> from response.json() into Observable<T>
-      // Use mergeMap to handle the async response.json()
-      // (or switchMap, both are fine here)
-      // Import mergeMap from 'rxjs/operators' if not already imported
-      // import { mergeMap } from 'rxjs/operators';
-      // (You can remove the map import if not used elsewhere)
-      // 
-      // The code:
-      // 
-      // .pipe(
-      //   mergeMap(response => { ... })
-      // )
-      //
-      // Implementation:
       mergeMap(response => {
+        console.log(`[API] Response status: ${response.status}`);
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         return response.json() as Promise<T>;
       }),
+      mergeMap(data => {
+        console.log(`[API] Received data:`, data);
+        return Promise.resolve(data);
+      }),
       catchError(error => {
-        console.error('API call failed:', error);
+        console.error('[API] API call failed:', error);
         throw error;
       })
     );

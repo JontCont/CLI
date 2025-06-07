@@ -41,7 +41,6 @@ function Login() {
     
     checkAuth();
   }, [navigate]);
-
   const saveTokenToSession = (token, userData, url) => {
     const now = new Date();
     // Token expires in 1 hour
@@ -53,6 +52,13 @@ function Login() {
       url,
       expiresAt
     };
+    
+    console.log('[Login] Saving auth data to session:', { 
+      urlPresent: !!url, 
+      tokenPresent: !!token,
+      expiresAt: expiresAt,
+      expiresIn: Math.floor((expiresAt - now.getTime()) / 60000) + ' minutes'
+    });
     
     sessionStorage.setItem('authData', JSON.stringify(sessionData));
   };
