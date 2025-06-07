@@ -2,10 +2,11 @@
  * Azure DevOps API Service
  * Handles all requests to the Azure DevOps API
  */
-import { from } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { from } from "rxjs";
+import { map, catchError } from "rxjs/operators";
+import { fromFetch } from "rxjs/fetch";
 
-const API_VERSION = 'api-version=7.0';
+const API_VERSION = "api-version=7.0";
 
 class AzureDevOpsService {
   /**
@@ -18,80 +19,107 @@ class AzureDevOpsService {
     this.token = token;
     this.headers = {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
   }
 
   /**
    * Get list of projects
    * @returns {Observable} An observable of ProjectListResponse
-   */  getProjects() {
+   */ getProjects() {
     const url = `${this.baseUrl}/_apis/projects?${API_VERSION}`;
     return this._makeApiCall(url).pipe(
-      map(response => {
+      map((response) => {
         // 處理各種可能的回應格式
-        if (!response || typeof response !== 'object') {
-          console.error('[AzureDevOpsService] Invalid response format:', response);
+        if (!response || typeof response !== "object") {
+          console.error(
+            "[AzureDevOpsService] Invalid response format:",
+            response
+          );
           return { value: [] };
         }
-        
+
         // 如果回應包含 value 屬性且是陣列
         if (response.value && Array.isArray(response.value)) {
           // 檢查是否包含 Promise 對象
-          const hasPromises = response.value.some(item => item instanceof Promise || 
-                                                (item && typeof item === 'object' && typeof item.then === 'function'));
-          
+          const hasPromises = response.value.some(
+            (item) =>
+              item instanceof Promise ||
+              (item &&
+                typeof item === "object" &&
+                typeof item.then === "function")
+          );
+
           if (hasPromises) {
             // 將所有 Promise 解析並返回整合後的數據
-            return from(Promise.all(
-              response.value.map(item => 
-                item instanceof Promise || (item && typeof item.then === 'function') 
-                  ? item 
-                  : Promise.resolve(item)
+            return from(
+              Promise.all(
+                response.value.map((item) =>
+                  item instanceof Promise ||
+                  (item && typeof item.then === "function")
+                    ? item
+                    : Promise.resolve(item)
+                )
               )
-            )).pipe(
-              map(resolvedItems => {
-                return { 
-                  value: resolvedItems.filter(item => item !== null && item !== undefined),
-                  count: resolvedItems.filter(item => item !== null && item !== undefined).length 
+            ).pipe(
+              map((resolvedItems) => {
+                return {
+                  value: resolvedItems.filter(
+                    (item) => item !== null && item !== undefined
+                  ),
+                  count: resolvedItems.filter(
+                    (item) => item !== null && item !== undefined
+                  ).length,
                 };
               })
             );
           }
-          
+
           return response;
         }
-        
+
         // 如果回應直接是陣列
         if (Array.isArray(response)) {
-          const hasPromises = response.some(item => item instanceof Promise || 
-                                         (item && typeof item === 'object' && typeof item.then === 'function'));
-          
+          const hasPromises = response.some(
+            (item) =>
+              item instanceof Promise ||
+              (item &&
+                typeof item === "object" &&
+                typeof item.then === "function")
+          );
+
           if (hasPromises) {
-            return from(Promise.all(
-              response.map(item => 
-                item instanceof Promise || (item && typeof item.then === 'function')
-                  ? item 
-                  : Promise.resolve(item)
+            return from(
+              Promise.all(
+                response.map((item) =>
+                  item instanceof Promise ||
+                  (item && typeof item.then === "function")
+                    ? item
+                    : Promise.resolve(item)
+                )
               )
-            )).pipe(
-              map(resolvedItems => {
-                return { 
-                  value: resolvedItems.filter(item => item !== null && item !== undefined),
-                  count: resolvedItems.filter(item => item !== null && item !== undefined).length 
+            ).pipe(
+              map((resolvedItems) => {
+                return {
+                  value: resolvedItems.filter(
+                    (item) => item !== null && item !== undefined
+                  ),
+                  count: resolvedItems.filter(
+                    (item) => item !== null && item !== undefined
+                  ).length,
                 };
               })
             );
           }
-          
+
           return { value: response, count: response.length };
         }
-        
+
         // 否則，嘗試適配我們收到的內容為預期的格式
         return { value: [response], count: 1 };
       }),
-      catchError(error => {
-        console.error('[AzureDevOpsService] Error in getProjects:', error);
+      catchError((error) => {
+        console.error("[AzureDevOpsService] Error in getProjects:", error);
         throw error;
       })
     );
@@ -133,7 +161,7 @@ class AzureDevOpsService {
    * @returns {Observable} An observable of Repository
    */
   getRepository(repositoryId, projectId) {
-    const projectSegment = projectId ? `${projectId}/` : '';
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}?${API_VERSION}`;
     return this._makeApiCall(url);
   }
@@ -145,9 +173,55 @@ class AzureDevOpsService {
    * @returns {Observable} An observable of BranchListResponse
    */
   getBranches(repositoryId, projectId) {
-    const projectSegment = projectId ? `${projectId}/` : '';
+    const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
     return this._makeApiCall(url);
+  }
+
+  /**
+   * Delete a branch in a repository (Azure DevOps 正確寫法)
+   * @param {string} repositoryId - The repository ID
+   * @param {string} branchName - The full ref name (e.g. refs/heads/feature/xxx)
+   * @param {string} projectId - The project ID
+   * @returns {Observable} An observable of the API response
+   */
+  deleteBranch(repositoryId, branchName, projectId, objectId) {
+    console.log(
+      `[AzureDevOpsService] Deleting branch ${branchName} in repository ${repositoryId} for project ${projectId}`
+    );
+    const projectSegment = projectId ? `${projectId}/` : "";
+    const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
+
+    return fromFetch(url, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify([
+        {
+          name: branchName,
+          oldObjectId: objectId,
+          newObjectId: "0000000000000000000000000000000000000000",
+        },
+      ]),
+    }).pipe(
+      map((response) => {
+        if (!response.ok) {
+          console.error(
+            `[AzureDevOpsService] HTTP error! Status: ${response.status}`
+          );
+          throw new Error(
+            `HTTP error! Status: ${response.status}, URL: ${url}`
+          );
+        }
+        return response.json();
+      }),
+      catchError((error) => {
+        console.error(
+          `[AzureDevOpsService] API call failed for ${url}:`,
+          error
+        );
+        throw error;
+      })
+    );
   }
 
   /**
@@ -156,42 +230,54 @@ class AzureDevOpsService {
    * @param {string} url - The URL to call
    * @param {Object} options - The fetch options
    * @returns {Observable} An observable of the API response
-   */  _makeApiCall(url, options = {}) {
+   */ _makeApiCall(url, options = {}) {
     const fetchOptions = {
-      method: 'GET',
+      method: "GET",
       headers: this.headers,
-      ...options
+      ...options,
     };
 
     console.log(`[AzureDevOpsService] Making API call to: ${url}`);
-    
+
     return from(fetch(url, fetchOptions)).pipe(
-      map(response => {
+      map((response) => {
         if (!response.ok) {
-          console.error(`[AzureDevOpsService] HTTP error! Status: ${response.status}`);
-          throw new Error(`HTTP error! Status: ${response.status}, URL: ${url}`);
+          console.error(
+            `[AzureDevOpsService] HTTP error! Status: ${response.status}`
+          );
+          throw new Error(
+            `HTTP error! Status: ${response.status}, URL: ${url}`
+          );
         }
         return response.json();
       }),
-      map(data => {
+      map((data) => {
         console.log(`[AzureDevOpsService] API response:`, data);
-        
+
         // 檢查數據格式並處理可能的 Promise
         if (data && data.value && Array.isArray(data.value)) {
-          const containsPromises = data.value.some(item => 
-            item instanceof Promise || 
-            (item && typeof item === 'object' && typeof item.then === 'function')
+          const containsPromises = data.value.some(
+            (item) =>
+              item instanceof Promise ||
+              (item &&
+                typeof item === "object" &&
+                typeof item.then === "function")
           );
-          
+
           if (containsPromises) {
-            console.log(`[AzureDevOpsService] Found promises in response data, will handle in getProjects`);
+            console.log(
+              `[AzureDevOpsService] Found promises in response data, will handle in getProjects`
+            );
           }
         }
-        
+
         return data;
       }),
-      catchError(error => {
-        console.error(`[AzureDevOpsService] API call failed for ${url}:`, error);
+      catchError((error) => {
+        console.error(
+          `[AzureDevOpsService] API call failed for ${url}:`,
+          error
+        );
         throw error;
       })
     );

@@ -134,7 +134,8 @@ class AzureDevOpsService {
   deleteBranch(
     repositoryId: string,
     branchName: string,
-    projectId?: string
+    projectId?: string,
+    objectId?: string 
   ): Observable<any> {
     const projectSegment = projectId ? `${projectId}/` : "";
     const url = `${this.baseUrl}/${projectSegment}_apis/git/repositories/${repositoryId}/refs?${API_VERSION}`;
@@ -148,7 +149,7 @@ class AzureDevOpsService {
     const payload = [
       {
         name: formattedBranchName,
-        oldObjectId: "0000000000000000000000000000000000000000",
+        oldObjectId: objectId,
         newObjectId: "0000000000000000000000000000000000000000",
       },
     ];

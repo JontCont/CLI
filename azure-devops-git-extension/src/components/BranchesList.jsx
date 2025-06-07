@@ -36,27 +36,25 @@ function BranchesList({
   loading, 
   error, 
   onBackToRepositories,
-  onDeleteBranch
+  onDeleteBranch,
+  branchSearch = '',
+  onBranchSearchChange = () => {},
+  branchPage = 1,
+  onBranchPageChange = () => {},
+  totalBranches = 0,
+  branchesPerPage = 50,
+  selectedBranches = [],
+  onToggleBranch = () => {},
+  onToggleAllBranches = () => {},
+  onDeleteSelectedBranches = () => {}
 }) {
-  const [selectedBranches, setSelectedBranches] = useState([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   
   // Toggle branch selection
   const handleToggleBranch = (branch) => {
-    setSelectedBranches(prev => {
-      // Check if this branch is already selected
-      const isSelected = prev.some(b => b.name === branch.name);
-      
-      if (isSelected) {
-        // Remove from selection
-        return prev.filter(b => b.name !== branch.name);
-      } else {
-        // Add to selection
-        return [...prev, branch];
-      }
-    });
+    onToggleBranch(branch.name);
   };
   
   // Open delete confirmation dialog
@@ -91,6 +89,16 @@ function BranchesList({
     return name.replace('refs/heads/', '');
   };
   
+  // 分頁按鈕
+  const totalPages = Math.ceil(totalBranches / branchesPerPage);
+
+  // 全選狀態
+  const allSelected = branches.length > 0 && branches.every(b => selectedBranches.includes(b.name));
+  const someSelected = branches.some(b => selectedBranches.includes(b.name));
+
+  // 過濾只顯示 branch，不顯示 tag
+  const filteredBranches = branches.filter(b => b.name && b.name.startsWith('refs/heads/'));
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -144,56 +152,104 @@ function BranchesList({
           No branches found in this repository.
         </Typography>
       ) : (
-        <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-          {branches.map((branch) => (
-            <ListItem 
-              key={branch.name} 
-              divider
-              secondaryAction={
-                <IconButton 
-                  edge="end" 
-                  aria-label="delete"
-                  onClick={() => handleOpenDeleteDialog(branch)}
-                  // Disable delete for default branch
-                  disabled={branch.name === selectedRepository.defaultBranch}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              }
+        <>
+          {/* 搜尋與批次刪除區塊 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <input
+              type="text"
+              placeholder="Search branches..."
+              value={branchSearch}
+              onChange={onBranchSearchChange}
+              style={{ marginRight: 16, padding: 6, fontSize: 16 }}
+            />
+            <Button
+              variant="contained"
+              color="error"
+              disabled={selectedBranches.length === 0}
+              onClick={onDeleteSelectedBranches}
+              sx={{ mr: 2 }}
             >
-              <ListItemIcon>
-                <Checkbox
-                  edge="start"
-                  checked={selectedBranches.some(b => b.name === branch.name)}
-                  onChange={() => handleToggleBranch(branch)}
-                  // Disable checkbox for default branch
-                  disabled={branch.name === selectedRepository.defaultBranch}
-                />
-              </ListItemIcon>
-              <ListItemIcon>
-                <CodeIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText 
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {normalizeBranchName(branch.name)}
-                    {branch.name === selectedRepository.defaultBranch && (
-                      <Chip 
-                        label="Default" 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined" 
-                        sx={{ ml: 1 }} 
-                      />
-                    )}
-                  </Box>
+              批次刪除勾選
+            </Button>
+            <Checkbox
+              indeterminate={someSelected && !allSelected}
+              checked={allSelected}
+              onChange={onToggleAllBranches}
+              inputProps={{ 'aria-label': 'Select all branches' }}
+            />
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              全選本頁
+            </Typography>
+            <Box sx={{ flex: 1 }} />
+            <Button
+              variant="outlined"
+              disabled={branchPage <= 1}
+              onClick={() => onBranchPageChange(branchPage - 1)}
+              sx={{ mr: 1 }}
+            >
+              上一頁
+            </Button>
+            <Typography variant="body2">
+              {branchPage} / {totalPages}
+            </Typography>
+            <Button
+              variant="outlined"
+              disabled={branchPage >= totalPages}
+              onClick={() => onBranchPageChange(branchPage + 1)}
+              sx={{ ml: 1 }}
+            >
+              下一頁
+            </Button>
+          </Box>
+          <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+            {filteredBranches.map((branch) => (
+              <ListItem 
+                key={branch.name} 
+                divider
+                secondaryAction={
+                  <IconButton 
+                    edge="end" 
+                    aria-label="delete"
+                    onClick={() => handleOpenDeleteDialog(branch)}
+                    disabled={branch.name === selectedRepository.defaultBranch}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 }
-                secondary={`Last commit: ${branch.creator ? branch.creator.displayName : 'Unknown'}`}
-                primaryTypographyProps={{ fontWeight: 'bold' }}
-              />
-            </ListItem>
-          ))}
-        </List>
+              >
+                <ListItemIcon>
+                  <Checkbox
+                    edge="start"
+                    checked={selectedBranches.includes(branch.name)}
+                    onChange={() => onToggleBranch(branch.name)}
+                    disabled={branch.name === selectedRepository.defaultBranch}
+                  />
+                </ListItemIcon>
+                <ListItemIcon>
+                  <CodeIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {normalizeBranchName(branch.name)}
+                      {branch.name === selectedRepository.defaultBranch && (
+                        <Chip 
+                          label="Default" 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined" 
+                          sx={{ ml: 1 }} 
+                        />
+                      )}
+                    </Box>
+                  }
+                  secondary={`Last commit: ${branch.creator ? branch.creator.displayName : 'Unknown'}`}
+                  primaryTypographyProps={{ fontWeight: 'bold' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </>
       )}
       
       {/* Delete confirmation dialog */}
