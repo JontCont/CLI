@@ -1,318 +1,210 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
+import React, { useState, useEffect } from "react";
+import {
+  Typography,
+  Box,
+  Paper,
   CircularProgress,
   Snackbar,
-  Alert
-} from '@mui/material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import ApiManager from './services/ApiManager';
-import ProjectsList from './components/ProjectsList';
-import RepositoriesList from './components/RepositoriesList';
-import BranchesList from './components/BranchesList';
+  Alert,
+} from "@mui/material";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import ApiManager from "./services/ApiManager";
+import ProjectsList from "./components/ProjectsList";
+import RepositoriesList from "./components/RepositoriesList";
+import BranchesList from "./components/BranchesList";
+import { concatMap, mergeMap, finalize, tap, from } from "rxjs";
+import { toArray } from "rxjs/operators";
 
-function Repos() {  
+function Repos() {
   // Data states
   const [repositories, setRepositories] = useState([]);
   const [branches, setBranches] = useState([]);
-  
+
   // Selection states
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedRepository, setSelectedRepository] = useState(null);
-  
+
   // UI states
   const [loading, setLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState('Loading...');
+  const [loadingMessage, setLoadingMessage] = useState("Loading...");
   const [error, setError] = useState(null);
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
-  const [view, setView] = useState('repositories'); // 'repositories', 'branches'
-  
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+  const [view, setView] = useState("repositories"); // 'repositories', 'branches'
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Close notification
   const handleCloseNotification = () => {
-    setNotification(prev => ({ ...prev, open: false }));
+    setNotification((prev) => ({ ...prev, open: false }));
   };
-  
+
   // Show notification
-  const showNotification = (message, severity = 'info') => {
+  const showNotification = (message, severity = "info") => {
     setNotification({
       open: true,
       message,
-      severity
+      severity,
     });
   };
 
   // Initial data loading
   useEffect(() => {
-    console.log('[Repos] Component mounted, initializing...');
-    
+    console.log("[Repos] Component mounted, initializing...");
+
     // Get or initialize the API service
-    const apiService = ApiManager.getCurrentService() || ApiManager.loadFromSession();
-    
-    console.log('[Repos] API Service initialized:', !!apiService);
-    
+    const apiService =
+      ApiManager.getCurrentService() || ApiManager.loadFromSession();
+
+    console.log("[Repos] API Service initialized:", !!apiService);
+
     if (!apiService) {
-      console.error('[Repos] API service initialization failed');
-      setError('API service not initialized. Please log in again.');
+      console.error("[Repos] API service initialization failed");
+      setError("API service not initialized. Please log in again.");
       setLoading(false);
-      navigate('/');
+      navigate("/");
       return;
     }
-    
+
     // Get project ID from URL parameters or session storage
-    const projectId = searchParams.get('projectId');
-    const projectName = searchParams.get('projectName');
-    
-    if (!projectId) {
-      // Try to get from session storage
-      const storedProject = sessionStorage.getItem('selectedProject');
-      if (storedProject) {
-        try {
-          const project = JSON.parse(storedProject);
-          setSelectedProject(project);
-          loadRepositories(project.id, apiService);
-        } catch (error) {
-          console.error('[Repos] Error parsing stored project:', error);
-          setError('Invalid project data. Please select a project first.');
-          setLoading(false);
-          navigate('/projects');
-        }
-      } else {
-        console.error('[Repos] No project ID provided');
-        setError('No project selected. Please select a project first.');
-        setLoading(false);
-        navigate('/projects');
-      }
-    } else {
-      // Create project object from URL params
-      const project = {
-        id: projectId,
-        name: projectName || 'Selected Project'
-      };
-      setSelectedProject(project);
-      loadRepositories(projectId, apiService);
+    const projectId = searchParams.get("projectId");
+    const projectName = searchParams.get("projectName");
+
+    if (!projectId && !projectName) {
+      console.error("[Repos] No project ID or name provided in URL");
+      setError("No project ID or name provided in URL parameters.");
+      setLoading(false);
+      return;
     }
+
+    loadRepositories(projectId, apiService);
   }, [navigate, searchParams]);
-  
+
   // Function to load repositories
   const loadRepositories = (projectId, apiService) => {
     setLoading(true);
-    setLoadingMessage('Loading repositories...');
+    setLoadingMessage("Loading repositories...");
     setError(null);
-    
-    try {
-      // Try to get repositories with error handling for both Promise and Observable
-      const reposObservable = apiService.getRepositories(projectId);
-      
-      // Check if the response is an Observable with subscribe method
-      if (reposObservable && typeof reposObservable.subscribe === 'function') {
-        reposObservable.subscribe({
-          next: (data) => {
-            console.log('[Repos] Repositories data received:', data);
-            if (data && data.value && data.value.length > 0) {
-              console.log('[Repos] Repositories found:', data.value.length);
-              setRepositories(data.value);
-              
-              // Log each repository for debugging
-              data.value.forEach(repo => {
-                console.log('[Repos] Repository:', repo.name, repo.id);
-              });
-            } else {
-              console.warn('[Repos] No repositories data or empty array, using sample data');
-              provideSampleRepositories(selectedProject);
-            }
-            setLoading(false);
-          },
-          error: (error) => {
-            console.error('[Repos] Repositories fetch error:', error);
-            console.warn('[Repos] Using sample repositories data instead');
-            provideSampleRepositories(selectedProject);
-            setLoading(false);
-          }
-        });
-      } else {
-        // Handle if the response is a Promise
-        console.warn('[Repos] API returned Promise instead of Observable, using sample data');
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('[Repos] Error fetching repositories:', error);
-      console.warn('[Repos] Using sample repositories data due to error');
-      provideSampleRepositories(selectedProject);
-      setLoading(false);
-    }
+
+    console.log("[Repos] Loading repositories for project ID:", projectId);
+    apiService
+      .getRepositories(projectId)
+      .pipe(
+        mergeMap((data) => {
+          const items = data || [];
+
+          return from(items).pipe(
+            mergeMap(async (project) => {
+              console.log("[Repos] Resolved repository:", project);
+              let resolved = project;
+              if (project && typeof project.then === "function") {
+                resolved = await project;
+              }
+
+              if (!resolved) return null;
+              const items = resolved["value"] || [];
+              return items;
+            })
+          );
+        }),
+        tap((repositories) => {
+          console.debug("[Repos] Repositories data received:", repositories);
+          const validRepositories = repositories.filter((item) => item != null);
+          setRepositories(validRepositories);
+        }),
+        finalize(() => {
+          setLoading(false);
+        })
+      )
+      .subscribe({
+        error: (err) => {
+          setError(
+            `Failed to load projects: ${err.message || "Unknown error"}`
+          );
+          setLoading(false);
+        },
+      });
   };
-  
-  // Function to provide sample repositories data for testing
-  const provideSampleRepositories = (project) => {
-    const sampleRepositories = [
-      {
-        id: 'sample-repo-1',
-        name: 'Frontend Repository',
-        url: '#',
-        project: project,
-        defaultBranch: 'refs/heads/main',
-        size: 1024,
-        remoteUrl: 'https://sample.com/frontend.git',
-        sshUrl: 'git@sample.com:frontend.git',
-        webUrl: 'https://sample.com/frontend',
-        isDisabled: false,
-        isInMaintenance: false
-      },
-      {
-        id: 'sample-repo-2',
-        name: 'Backend Repository',
-        url: '#',
-        project: project,
-        defaultBranch: 'refs/heads/main',
-        size: 2048,
-        remoteUrl: 'https://sample.com/backend.git',
-        sshUrl: 'git@sample.com:backend.git',
-        webUrl: 'https://sample.com/backend',
-        isDisabled: false,
-        isInMaintenance: false
-      },
-      {
-        id: 'sample-repo-3',
-        name: 'Infrastructure Repository',
-        url: '#',
-        project: project,
-        defaultBranch: 'refs/heads/main',
-        size: 512,
-        remoteUrl: 'https://sample.com/infra.git',
-        sshUrl: 'git@sample.com:infra.git',
-        webUrl: 'https://sample.com/infra',
-        isDisabled: false,
-        isInMaintenance: false
-      }
-    ];
-    
-    setRepositories(sampleRepositories);
-  };
-  
+
   // Handle project selection
   const handleSelectProject = (project) => {
     setSelectedProject(project);
-    setView('repositories');
+    setView("repositories");
     // Store selected project in session storage
-    sessionStorage.setItem('selectedProject', JSON.stringify(project));
-    
+    sessionStorage.setItem("selectedProject", JSON.stringify(project));
+
     // Navigate to repositories view
     loadRepositories(project.id, ApiManager.getCurrentService());
   };
-  
+
   // Handle repository selection
   const handleSelectRepository = (repository) => {
     setSelectedRepository(repository);
-    setView('branches');
-    
+    setView("branches");
+
     // Store selected repository in session storage
-    sessionStorage.setItem('selectedRepository', JSON.stringify(repository));
-    
+    sessionStorage.setItem("selectedRepository", JSON.stringify(repository));
+
+    if (!selectedProject) {
+      console.error("[Repos] No project selected for repository:", repository);
+      setError("No project selected for this repository.");
+      return;
+    }
+
     // Load branches for selected repository
     loadBranches(repository.id, selectedProject.id);
   };
-  
+
   // Function to load branches for a repository
   const loadBranches = (repositoryId, projectId) => {
     setLoading(true);
-    setLoadingMessage('Loading branches...');
+    setLoadingMessage("Loading branches...");
     setError(null);
-    
+
     const apiService = ApiManager.getCurrentService();
-    
-    try {
-      // Try to get branches with error handling for both Promise and Observable
-      const branchesObservable = apiService.getBranches(repositoryId, projectId);
-      
-      // Check if the response is an Observable with subscribe method
-      if (branchesObservable && typeof branchesObservable.subscribe === 'function') {
-        branchesObservable.subscribe({
-          next: (data) => {
-            console.log('[Repos] Branches data received:', data);
-            if (data && data.value && data.value.length > 0) {
-              console.log('[Repos] Branches found:', data.value.length);
-              
-              // Filter to include only branches (not tags or other refs)
-              const branchRefs = data.value.filter(ref => ref.name.startsWith('refs/heads/'));
-              setBranches(branchRefs);
-              
-              // Log each branch for debugging
-              branchRefs.forEach(branch => {
-                console.log('[Repos] Branch:', branch.name);
-              });
-            } else {
-              console.warn('[Repos] No branches data or empty array, using sample data');
-              provideSampleBranches();
-            }
-            setLoading(false);
-          },
-          error: (error) => {
-            console.error('[Repos] Branches fetch error:', error);
-            console.warn('[Repos] Using sample branches data instead');
-            provideSampleBranches();
-            setLoading(false);
-          }
-        });
-      } else {
-        // Handle if the response is a Promise
-        console.warn('[Repos] API returned Promise instead of Observable, using sample data for branches');
-        provideSampleBranches();
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('[Repos] Error fetching branches:', error);
-      console.warn('[Repos] Using sample branches data due to error');
-      provideSampleBranches();
-      setLoading(false);
-    }
+    apiService
+      .getBranches(repositoryId, projectId)
+      .pipe(
+        mergeMap((data) => {
+          const items = data || [];
+
+          return from(items).pipe(
+            mergeMap(async (project) => {
+              console.log("[Branch] Resolved repository:", project);
+              let resolved = project;
+              if (project && typeof project.then === "function") {
+                resolved = await project;
+              }
+
+              if (!resolved) return null;
+              const items = resolved["value"] || [];
+              return items;
+            })
+          );
+        }),
+        tap((repositories) => {
+          console.debug("[Branch] Repositories data received:", repositories);
+          const validRepositories = repositories.filter((item) => item != null);
+          setBranches(validRepositories);
+        }),
+        finalize(() => {
+          setLoading(false);
+        })
+      )
+      .subscribe({
+        error: (err) => {
+          setError(
+            `Failed to load projects: ${err.message || "Unknown error"}`
+          );
+          setLoading(false);
+        },
+      });
   };
-  
-  // Function to provide sample branches data for testing
-  const provideSampleBranches = () => {
-    const sampleBranches = [
-      {
-        name: 'refs/heads/main',
-        objectId: '0123456789abcdef0123456789abcdef01234567',
-        creator: {
-          id: 'user1',
-          displayName: 'John Doe',
-          uniqueName: 'john.doe@example.com',
-          imageUrl: '#'
-        },
-        url: '#'
-      },
-      {
-        name: 'refs/heads/develop',
-        objectId: 'fedcba9876543210fedcba9876543210fedcba98',
-        creator: {
-          id: 'user2',
-          displayName: 'Jane Smith',
-          uniqueName: 'jane.smith@example.com',
-          imageUrl: '#'
-        },
-        url: '#'
-      },
-      {
-        name: 'refs/heads/feature/new-ui',
-        objectId: 'abcdef1234567890abcdef1234567890abcdef12',
-        creator: {
-          id: 'user1',
-          displayName: 'John Doe',
-          uniqueName: 'john.doe@example.com',
-          imageUrl: '#'
-        },
-        url: '#'
-      }
-    ];
-    
-    setBranches(sampleBranches);
-  };
-  
+
   // Handle back to projects view
   const handleBackToProjects = () => {
     setSelectedProject(null);
@@ -320,74 +212,95 @@ function Repos() {
     setRepositories([]);
     setBranches([]);
     // Navigate to projects page instead of changing view
-    navigate('/projects');
+    navigate("/projects");
   };
-  
+
   // Handle back to repositories view
   const handleBackToRepositories = () => {
     setSelectedRepository(null);
     setBranches([]);
-    setView('repositories');
+    setView("repositories");
   };
-  
+
   // Delete branch
   const handleDeleteBranch = (branch) => {
     if (!selectedRepository || !selectedProject) {
-      return Promise.reject(new Error('Repository or project not selected'));
+      return Promise.reject(new Error("Repository or project not selected"));
     }
-    
+
     setLoading(true);
-    setLoadingMessage('Deleting branch...');
-    
+    setLoadingMessage("Deleting branch...");
+
     const apiService = ApiManager.getCurrentService();
     return new Promise((resolve, reject) => {
-      apiService.deleteBranch(selectedRepository.id, branch.name, selectedProject.id).subscribe({
-        next: (response) => {
-          console.log('[Repos] Branch deletion response:', response);
-          
-          // Reload branches to reflect changes
-          apiService.getBranches(selectedRepository.id, selectedProject.id).subscribe({
-            next: (data) => {
-              if (data && data.value) {
-                // Filter to include only branches (not tags or other refs)
-                const branchRefs = data.value.filter(ref => ref.name.startsWith('refs/heads/'));
-                setBranches(branchRefs);
-              } else {
-                setBranches([]);
-              }
-              setLoading(false);
-              showNotification(`Branch ${branch.name.replace('refs/heads/', '')} deleted successfully`, 'success');
-              resolve();
-            },
-            error: (error) => {
-              console.error('[Repos] Branches refresh error:', error);
-              setError('Failed to refresh branches list');
-              setLoading(false);
-              reject(error);
-            }
-          });
-        },
-        error: (error) => {
-          console.error('[Repos] Branch deletion error:', error);
-          setError('Failed to delete branch: ' + (error.message || 'Unknown error'));
-          setLoading(false);
-          reject(error);
-        }
-      });
+      apiService
+        .deleteBranch(selectedRepository.id, branch.name, selectedProject.id)
+        .subscribe({
+          next: (response) => {
+            console.log("[Repos] Branch deletion response:", response);
+
+            // Reload branches to reflect changes
+            apiService
+              .getBranches(selectedRepository.id, selectedProject.id)
+              .subscribe({
+                next: (data) => {
+                  if (data && data.value) {
+                    // Filter to include only branches (not tags or other refs)
+                    const branchRefs = data.value.filter((ref) =>
+                      ref.name.startsWith("refs/heads/")
+                    );
+                    setBranches(branchRefs);
+                  } else {
+                    setBranches([]);
+                  }
+                  setLoading(false);
+                  showNotification(
+                    `Branch ${branch.name.replace(
+                      "refs/heads/",
+                      ""
+                    )} deleted successfully`,
+                    "success"
+                  );
+                  resolve();
+                },
+                error: (error) => {
+                  console.error("[Repos] Branches refresh error:", error);
+                  setError("Failed to refresh branches list");
+                  setLoading(false);
+                  reject(error);
+                },
+              });
+          },
+          error: (error) => {
+            console.error("[Repos] Branch deletion error:", error);
+            setError(
+              "Failed to delete branch: " + (error.message || "Unknown error")
+            );
+            setLoading(false);
+            reject(error);
+          },
+        });
     });
   };
-  
+
   // Render the current view
   const renderCurrentView = () => {
     if (loading) {
       return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            p: 4,
+          }}
+        >
           <CircularProgress size={40} sx={{ mb: 2 }} />
           <Typography variant="body1">{loadingMessage}</Typography>
         </Box>
       );
     }
-    
+
     if (error) {
       return (
         <Typography color="error" sx={{ p: 2 }}>
@@ -395,9 +308,9 @@ function Repos() {
         </Typography>
       );
     }
-    
+
     switch (view) {
-      case 'branches':
+      case "branches":
         return (
           <BranchesList
             branches={branches}
@@ -409,8 +322,8 @@ function Repos() {
             onDeleteBranch={handleDeleteBranch}
           />
         );
-      
-      case 'repositories':
+
+      case "repositories":
       default:
         return (
           <RepositoriesList
@@ -423,25 +336,25 @@ function Repos() {
           />
         );
     }
-  }
-  
+  };
+
   return (
     <Box>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
         {renderCurrentView()}
       </Paper>
-      
+
       {/* Notification snackbar */}
-      <Snackbar 
+      <Snackbar
         open={notification.open}
         autoHideDuration={6000}
         onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.severity} 
-          sx={{ width: '100%' }}
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          sx={{ width: "100%" }}
           variant="filled"
           elevation={6}
         >
