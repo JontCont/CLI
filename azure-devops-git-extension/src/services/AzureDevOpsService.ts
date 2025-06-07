@@ -168,10 +168,9 @@ class AzureDevOpsService {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         return response.json() as Promise<T>;
-      }),
-      mergeMap(data => {
+      }),      mergeMap(data => {
         console.log(`[API] Received data:`, data);
-        return Promise.resolve(data);
+        return from(Promise.resolve(data));
       }),
       catchError(error => {
         console.error('[API] API call failed:', error);

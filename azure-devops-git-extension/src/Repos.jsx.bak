@@ -13,8 +13,7 @@ import ProjectsList from './components/ProjectsList';
 import RepositoriesList from './components/RepositoriesList';
 import BranchesList from './components/BranchesList';
 
-function Repos() {  
-  // Data states
+function Repos() {  // Data states
   const [repositories, setRepositories] = useState([]);
   const [branches, setBranches] = useState([]);
   
@@ -45,8 +44,8 @@ function Repos() {
       severity
     });
   };
-
-  // Initial data loading
+    // Navigation is now handled by MainLayout
+    // Initial data loading
   useEffect(() => {
     console.log('[Repos] Component mounted, initializing...');
     
@@ -199,27 +198,42 @@ function Repos() {
   const handleSelectProject = (project) => {
     setSelectedProject(project);
     setView('repositories');
-    // Store selected project in session storage
-    sessionStorage.setItem('selectedProject', JSON.stringify(project));
+    setLoading(true);
+    setLoadingMessage('Loading repositories...');
+    setError(null);
     
-    // Navigate to repositories view
-    loadRepositories(project.id, ApiManager.getCurrentService());
+    const apiService = ApiManager.getCurrentService();    apiService.getRepositories(project.id).subscribe({
+      next: (data) => {
+        console.log('[Repos] Repositories data received:', data);
+        if (data && data.value) {
+          console.log('[Repos] Repositories found:', data.value.length);
+          // Always use the API data when available
+          setRepositories(data.value);
+          
+          // Log each repository for debugging
+          data.value.forEach(repo => {
+            console.log('[Repos] Repository:', repo.name, repo.id);
+          });
+        } else {
+          console.warn('[Repos] No repositories data or empty array');
+          setRepositories([]);
+        }
+        setLoading(false);
+      },
+      error: (error) => {
+        console.error('[Repos] Repositories fetch error:', error);
+        setError('Failed to fetch repositories: ' + (error.message || 'Unknown error'));
+        setLoading(false);
+        
+        // Provide sample data in case of error
+        provideSampleRepositories(project);
+      }
+    });
   };
   
-  // Handle repository selection
-  const handleSelectRepository = (repository) => {
+  // Handle repository selection  const handleSelectRepository = (repository) => {
     setSelectedRepository(repository);
     setView('branches');
-    
-    // Store selected repository in session storage
-    sessionStorage.setItem('selectedRepository', JSON.stringify(repository));
-    
-    // Load branches for selected repository
-    loadBranches(repository.id, selectedProject.id);
-  };
-  
-  // Function to load branches for a repository
-  const loadBranches = (repositoryId, projectId) => {
     setLoading(true);
     setLoadingMessage('Loading branches...');
     setError(null);
@@ -228,7 +242,7 @@ function Repos() {
     
     try {
       // Try to get branches with error handling for both Promise and Observable
-      const branchesObservable = apiService.getBranches(repositoryId, projectId);
+      const branchesObservable = apiService.getBranches(repository.id, selectedProject.id);
       
       // Check if the response is an Observable with subscribe method
       if (branchesObservable && typeof branchesObservable.subscribe === 'function') {
@@ -236,48 +250,53 @@ function Repos() {
           next: (data) => {
             console.log('[Repos] Branches data received:', data);
             if (data && data.value && data.value.length > 0) {
-              console.log('[Repos] Branches found:', data.value.length);
-              
               // Filter to include only branches (not tags or other refs)
               const branchRefs = data.value.filter(ref => ref.name.startsWith('refs/heads/'));
-              setBranches(branchRefs);
+              console.log('[Repos] Branches found:', branchRefs.length);
               
-              // Log each branch for debugging
-              branchRefs.forEach(branch => {
-                console.log('[Repos] Branch:', branch.name);
-              });
+              if (branchRefs.length > 0) {
+                setBranches(branchRefs);
+                
+                // Log each branch for debugging
+                branchRefs.forEach(branch => {
+                  console.log('[Repos] Branch:', branch.name);
+                });
+              } else {
+                console.warn('[Repos] No branch refs found, using sample data');
+                provideSampleBranches(repository);
+              }
             } else {
               console.warn('[Repos] No branches data or empty array, using sample data');
-              provideSampleBranches();
+              provideSampleBranches(repository);
             }
             setLoading(false);
           },
           error: (error) => {
             console.error('[Repos] Branches fetch error:', error);
             console.warn('[Repos] Using sample branches data instead');
-            provideSampleBranches();
+            provideSampleBranches(repository);
             setLoading(false);
           }
         });
       } else {
         // Handle if the response is a Promise
-        console.warn('[Repos] API returned Promise instead of Observable, using sample data for branches');
-        provideSampleBranches();
+        console.warn('[Repos] API returned Promise instead of Observable, using sample data');
+        provideSampleBranches(repository);
         setLoading(false);
       }
     } catch (error) {
       console.error('[Repos] Error fetching branches:', error);
       console.warn('[Repos] Using sample branches data due to error');
-      provideSampleBranches();
+      provideSampleBranches(repository);
       setLoading(false);
     }
   };
   
   // Function to provide sample branches data for testing
-  const provideSampleBranches = () => {
+  const provideSampleBranches = (repository) => {
     const sampleBranches = [
       {
-        name: 'refs/heads/main',
+        name: repository.defaultBranch || 'refs/heads/main',
         objectId: '0123456789abcdef0123456789abcdef01234567',
         creator: {
           id: 'user1',
@@ -313,8 +332,7 @@ function Repos() {
     
     setBranches(sampleBranches);
   };
-  
-  // Handle back to projects view
+    // Handle back to projects view
   const handleBackToProjects = () => {
     setSelectedProject(null);
     setSelectedRepository(null);
@@ -377,8 +395,7 @@ function Repos() {
       });
     });
   };
-  
-  // Render the current view
+    // Render the current view
   const renderCurrentView = () => {
     if (loading) {
       return (
@@ -424,9 +441,8 @@ function Repos() {
           />
         );
     }
-  }
-  
-  return (
+  };
+    return (
     <Box>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
         {renderCurrentView()}

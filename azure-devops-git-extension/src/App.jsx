@@ -12,6 +12,9 @@ import {
 } from "react-router-dom";
 import Login from "./Login";
 import Repos from "./Repos";
+import Projects from "./Projects";
+import Dashboard from "./Dashboard";
+import MainLayout from "./components/MainLayout";
 
 const theme = createTheme({
   palette: {
@@ -28,14 +31,35 @@ const theme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        <Routes>
+      <Router>        <Routes>
           <Route path="/" element={<Login />} />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Projects />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/repos"
             element={
               <ProtectedRoute>
-                <ReposWrapper />
+                <MainLayout>
+                  <ReposWrapper />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Dashboard />
+                </MainLayout>
               </ProtectedRoute>
             }
           />

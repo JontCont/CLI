@@ -28,13 +28,19 @@ function ProjectsList({ projects, loading, error, onSelectProject }) {
         {error}
       </Typography>
     );
-  }
-
-  if (projects.length === 0) {
+  }  if (projects.length === 0) {
     return (
-      <Typography sx={{ p: 2 }}>
-        No projects found.
-      </Typography>
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body1" gutterBottom>
+          No projects found in your Azure DevOps account.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Please make sure your access token has the appropriate permissions to view projects.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 4 }}>
+          If you're having trouble with the API, you can use the links in the side menu to navigate between pages.
+        </Typography>
+      </Box>
     );
   }
 
