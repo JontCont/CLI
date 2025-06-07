@@ -13,7 +13,8 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Divider
+  Divider,
+  IconButton
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ApiManager from './services/ApiManager';
@@ -72,16 +73,29 @@ function Repos({ token, apiUrl }) {
         setLoading(false);
       }
     });
-    
-    return () => projectsSubscription.unsubscribe();
-  }, []);  return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
+      return () => projectsSubscription.unsubscribe();
+  }, []);
+  
+  return (
+    <Box sx={{ flexGrow: 1 }}>      <AppBar position="static" sx={{ mb: 2 }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Azure DevOps Git Extension
           </Typography>
-          <Button color="inherit" onClick={handleLogout}>Logout</Button>
+          <Button 
+            color="inherit" 
+            onClick={handleLogout}
+            variant="outlined"
+            sx={{ 
+              borderColor: 'rgba(255,255,255,0.5)', 
+              '&:hover': { 
+                borderColor: 'white', 
+                bgcolor: 'rgba(255,255,255,0.1)' 
+              } 
+            }}
+          >
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
       
